@@ -129,7 +129,7 @@ class SimuladorESP32:
     Receptor real sem alterar o restante do sistema.
     """
 
-    def __init__(self, linhas: int = 8, colunas: int = 8, intervalo: float = 1.0):
+    def __init__(self, linhas: int = 4, colunas: int = 4, intervalo: float = 1.0):
         self.linhas = linhas
         self.colunas = colunas
         self.intervalo = intervalo
