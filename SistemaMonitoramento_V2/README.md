@@ -77,27 +77,46 @@ outro protocolo (ex.: MQTT, UDP, Serial/USB).
 ## 5. Estrutura do projeto
 
 ```
-SistemaMonitoramento/
-├── main.py                      # ponto de entrada, roteamento de telas
-├── database.py                  # schema SQLite + conexões
-├── requirements.txt
-├── data/                        # banco de dados e config.json (gerados em runtime)
-├── models/                      # Paciente, Reposicionamento, Leitura
-├── services/
-│   ├── receptor.py              # comunicação TCP com a ESP32 + SimuladorESP32
-│   ├── processamento.py         # interpolação, normalização, estatísticas
-│   └── visualizacao.py          # mapa térmico em Matplotlib
-├── controllers/
-│   ├── paciente_controller.py
-│   ├── monitoramento_controller.py   # orquestra Receptor -> Processamento -> Visualização -> BD
-│   ├── historico_controller.py
-│   └── relatorio_controller.py
-└── views/
-    ├── components/ (top_bar, side_menu)
-    ├── home_view.py
-    ├── paciente_view.py
-    ├── monitoramento_view.py    # tela com os 3 painéis (status / mapa / eventos)
-    ├── historico_view.py
-    ├── relatorios_view.py
-    └── configuracoes_view.py
+  SistemaMonitoramento/
+  │
+  ├── main.py                ← Ponto de entrada; roteamento entre telas
+  ├── database.py            ← Schema SQLite + helpers de conexão
+  │
+  ├── utils/
+  │   └── config.py          ← Configurações persistidas em JSON
+  │
+  ├── models/                ← Estruturas de dados puras (dataclasses)
+  │   ├── paciente.py
+  │   ├── leitura.py
+  │   ├── reposicionamento.py
+  │   └── lembrete.py
+  │
+  ├── controllers/           ← Regras de negócio + acesso ao banco
+  │   ├── paciente_controller.py
+  │   ├── monitoramento_controller.py
+  │   ├── historico_controller.py
+  │   ├── relatorio_controller.py
+  │   └── lembrete_controller.py
+  │
+  ├── services/              ← Hardware, processamento de sinais e gráficos
+  │   ├── receptor.py        ← TCP com ESP32 (+ SimuladorESP32)
+  │   ├── processamento.py   ← NumPy / SciPy
+  │   └── visualizacao.py    ← Matplotlib (backend Agg, sem janela)
+  │
+  ├── views/                 ← Interface gráfica (Flet)
+  │   ├── components/
+  │   │   ├── side_menu.py
+  │   │   └── top_bar.py
+  │   ├── home_view.py
+  │   ├── paciente_view.py
+  │   ├── monitoramento_view.py
+  │   ├── lembretes_panel.py
+  │   ├── historico_view.py
+  │   ├── relatorios_view.py
+  │   └── configuracoes_view.py
+  │
+  └── data/                  ← Criado automaticamente em runtime
+      ├── monitoramento.db   ← Banco SQLite
+      └── config.json        ← Configurações do usuário
+
 ```
