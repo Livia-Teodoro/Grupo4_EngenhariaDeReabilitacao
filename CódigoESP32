@@ -1,0 +1,217 @@
+//TUDO QUE ESSE CODIGO PRECISA
+// Ler os sensores.
+// Montar a matriz.
+// Converter a matriz para JSON.
+// Enviar esse JSON por TCP.
+
+#include <WiFi.h>
+
+//====================================================
+// CONFIGURAÇÃO WIFI
+//====================================================
+
+const char* SSID = "esp32";
+const char* PASSWORD = "12345678";
+
+//====================================================
+// SERVIDOR TCP
+//====================================================
+
+const uint16_t PORTA_TCP = 8080;
+
+WiFiServer server(PORTA_TCP);
+WiFiClient client;
+
+// =========================
+// CD74HC4067
+// =========================
+#define MUX_S0 18
+#define MUX_S1 19
+#define MUX_S2 21
+#define MUX_S3 23
+
+// =========================
+// ADC0804 -> ESP32
+// =========================
+#define ADC_D0 26
+#define ADC_D1 25
+#define ADC_D2 33
+#define ADC_D3 32
+#define ADC_D4 35
+#define ADC_D5 34
+#define ADC_D6 39
+#define ADC_D7 36
+
+// =========================
+// TEMPO DE COMUTAÇÃO DO MUX
+// =========================
+// Ajuste aqui conforme necessário
+const uint32_t muxSettlingTime_us = 1000;
+
+// =========================
+// MATRIZ
+// =========================
+uint8_t matriz[4][4];
+
+// =========================
+
+void setup()
+{
+    Serial.begin(115200);
+
+    pinMode(MUX_S0, OUTPUT);
+    pinMode(MUX_S1, OUTPUT);
+    pinMode(MUX_S2, OUTPUT);
+    pinMode(MUX_S3, OUTPUT);
+
+    pinMode(ADC_D0, INPUT);
+    pinMode(ADC_D1, INPUT);
+    pinMode(ADC_D2, INPUT);
+    pinMode(ADC_D3, INPUT);
+    pinMode(ADC_D4, INPUT);
+    pinMode(ADC_D5, INPUT);
+    pinMode(ADC_D6, INPUT);
+    pinMode(ADC_D7, INPUT);
+
+    //----------------------------------------
+    // WiFi
+    //----------------------------------------
+
+    Serial.println();
+    Serial.println("Conectando ao WiFi...");
+
+    WiFi.begin(SSID, PASSWORD);
+
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        delay(500);
+        Serial.print(".");
+    }
+
+    Serial.println();
+    Serial.println("WiFi conectado!");
+
+    Serial.print("IP: ");
+    Serial.println(WiFi.localIP());
+
+    //----------------------------------------
+
+    server.begin();
+
+    Serial.print("Servidor TCP iniciado na porta ");
+    Serial.println(PORTA_TCP);
+
+    Serial.println("Sistema iniciado");
+}
+
+// Seleciona canal do 4067
+void selectMuxChannel(uint8_t channel)
+{
+    digitalWrite(MUX_S0, channel & 0x01);
+    digitalWrite(MUX_S1, (channel >> 1) & 0x01);
+    digitalWrite(MUX_S2, (channel >> 2) & 0x01);
+    digitalWrite(MUX_S3, (channel >> 3) & 0x01);
+}
+
+// Lê os 8 bits vindos do ADC0804
+ uint8_t readADC0804()
+{
+    uint8_t value = 0;
+
+   value |= digitalRead(ADC_D0) << 0;
+   value |= digitalRead(ADC_D1) << 1;
+   value |= digitalRead(ADC_D2) << 2;
+   value |= digitalRead(ADC_D3) << 3;
+   value |= digitalRead(ADC_D4) << 4;
+   value |= digitalRead(ADC_D5) << 5;
+   value |= digitalRead(ADC_D6) << 6;
+   value |= digitalRead(ADC_D7) << 7;
+
+    return value;
+}
+
+void lerMatriz()
+{
+    for(uint8_t channel = 0; channel < 16; channel++)
+    {
+        selectMuxChannel(channel);
+
+        // Aguarda estabilização do MUX
+        delayMicroseconds(muxSettlingTime_us);
+
+        matriz[channel/4][channel%4] = readADC0804();
+         delay(5);
+    }
+   
+}
+
+//====================================================
+// Envia JSON
+//====================================================
+
+void enviarJSON()
+{
+    String json = "{\"matrix\":[";
+
+    for (int i = 0; i < 4; i++)
+    {
+        json += "[";
+
+        for (int j = 0; j < 4; j++)
+        {
+            json += String(matriz[i][j]);
+
+            if (j < 3)
+                json += ",";
+        }
+
+        json += "]";
+
+        if (i < 3)
+            json += ",";
+    }
+
+    json += "]}\n";
+
+    client.print(json);
+
+    Serial.println(json);
+}
+
+//====================================================
+
+void loop()
+{
+    //----------------------------------------
+    // Espera cliente conectar
+    //----------------------------------------
+
+    if (!client || !client.connected())
+    {
+        client = server.accept();
+
+        if (!client)
+        {
+            delay(100);
+            return;
+        }
+
+        Serial.println("Cliente conectado!");
+    }
+
+    //----------------------------------------
+    // Atualiza matriz
+    //----------------------------------------
+
+    lerMatriz();
+
+    //----------------------------------------
+    // Envia ao computador
+    //----------------------------------------
+
+    enviarJSON();
+
+    //----------------------------------------
+
+    delay(100);
+}
